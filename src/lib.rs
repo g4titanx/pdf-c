@@ -152,6 +152,7 @@ impl PdfCompressor {
     }
 }
 
+// Run test with: cargo test -- --nocapture
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -160,7 +161,7 @@ mod tests {
     #[test]
     fn test_compression() {
         let mut compressor = PdfCompressor::new();
-        let input = fs::read("test_files/egg.pdf").expect("Failed to read test PDF");
+        let input = fs::read("test_files/smp1.pdf").expect("Failed to read test PDF");
 
         let result = compressor.compress(&input);
         assert!(result.is_ok(), "Successfully compressed!");
