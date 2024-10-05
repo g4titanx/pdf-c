@@ -1,0 +1,10 @@
+[package]
+name = "pdf-c"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+miniz_oxide = "0.7.1"
+image = "0.24.6"
+log = "0.4.22"
+lopdf = "0.34.0"
