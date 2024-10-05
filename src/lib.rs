@@ -1,4 +1,5 @@
 mod errors;
+mod wasm_bindings;
 
 use errors::CompressionError;
 use image::{DynamicImage, ImageOutputFormat};
@@ -15,7 +16,10 @@ impl PdfCompressor {
     }
 
     pub fn compress(&mut self, input: &[u8]) -> Result<Vec<u8>, CompressionError> {
-        let mut doc = Document::load_from(Cursor::new(input))?;
+        let mut doc = Document::load_from(input).map_err(|e| {
+            println!("PDF load error: {:?}", e);
+            CompressionError::PdfLoad(e)
+        })?;
         info!("PDF loaded successfully");
 
         self.compress_images(&mut doc)?;
@@ -102,14 +106,14 @@ impl PdfCompressor {
             &mut Cursor::new(&mut output),
             ImageOutputFormat::Jpeg(quality),
         )
-        .map_err(CompressionError::ImageSaveError)?;
+        .map_err(CompressionError::ImageSave)?;
         Ok(output)
     }
 
     fn compress_png(&self, img: DynamicImage) -> Result<Vec<u8>, CompressionError> {
         let mut output = Vec::new();
         img.write_to(&mut Cursor::new(&mut output), ImageOutputFormat::Png)
-            .map_err(CompressionError::ImageSaveError)?;
+            .map_err(CompressionError::ImageSave)?;
         Ok(output)
     }
 
@@ -157,31 +161,58 @@ impl PdfCompressor {
 mod tests {
     use super::*;
     use std::fs;
+    use lopdf::Document;
 
     #[test]
     fn test_compression() {
         let mut compressor = PdfCompressor::new();
-        let input = fs::read("test_files/smp1.pdf").expect("Failed to read test PDF");
+        let input_path = "test_files/smp1.pdf";
+        
+        println!("Reading input file...");
+        let input = match fs::read(input_path) {
+            Ok(data) => data,
+            Err(e) => panic!("Failed to read test PDF: {}", e),
+        };
 
+        println!("Input PDF size: {} bytes", input.len());
+
+        println!("Starting compression...");
         let result = compressor.compress(&input);
-        assert!(result.is_ok(), "Successfully compressed!");
 
-        let compressed = result.unwrap();
+        match result {
+            Ok(compressed) => {
+                println!("Compression completed.");
+                println!("Compressed PDF size: {} bytes", compressed.len());
+                
+                let compression_ratio = compressed.len() as f64 / input.len() as f64;
+                println!("Compression ratio: {:.2}%", compression_ratio * 100.0);
 
-        println!("Original PDF size: {} bytes", input.len());
-        println!("Compressed PDF size: {} bytes", compressed.len());
-
-        if compressed.len() >= input.len() {
-            println!("Warning: Compression was ineffective for this PDF.");
-            println!("Not saving the compressed version as it's larger than the original.");
-        } else {
-            println!(
-                "Compression successful. Size reduced by {} bytes",
-                input.len() - compressed.len()
-            );
-            fs::write("test_files/compressed_sample.pdf", compressed)
-                .expect("Failed to write compressed PDF");
-            println!("Compressed PDF saved as 'test_files/compressed_sample.pdf'");
+                if compressed.len() < input.len() {
+                    println!(
+                        "Compression successful. Size reduced by {} bytes",
+                        input.len() - compressed.len()
+                    );
+                    fs::write("test_files/compressed_sample.pdf", &compressed)
+                        .expect("Failed to write compressed PDF");
+                } else {
+                    println!("Warning: Compressed file is larger than input.");
+                }
+                
+                assert!(compressed.len() > 0, "Compressed data is empty");
+            },
+            Err(e) => {
+                panic!("Compression failed: {:?}", e);
+            }
         }
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn init_panic_hook() {
+    use console_error_panic_hook;
+    console_error_panic_hook::set_once();
 }

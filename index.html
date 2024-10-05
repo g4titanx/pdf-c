@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Compressor WASM Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        #status, #output {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .warning {
+            color: #856404;
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>PDF Compressor WASM Demo</h1>
+    <input type="file" id="fileInput" accept=".pdf">
+    <button id="compressButton">Compress PDF</button>
+    <div id="status"></div>
+    <div id="output"></div>
+
+    <script type="module">
+        import init, { WasmPdfCompressor, init_panic_hook } from './pkg/pdf_c.js';
+
+        async function run() {
+            try {
+                await init();
+                init_panic_hook();
+                document.getElementById('status').textContent = 'WASM module loaded successfully';
+
+                const compressor = new WasmPdfCompressor();
+
+                document.getElementById('compressButton').addEventListener('click', async () => {
+                    const fileInput = document.getElementById('fileInput');
+                    const file = fileInput.files[0];
+                    if (!file) {
+                        alert('Please select a PDF file');
+                        return;
+                    }
+
+                    document.getElementById('status').textContent = 'Compressing...';
+                    document.getElementById('output').innerHTML = '';
+
+                    const arrayBuffer = await file.arrayBuffer();
+                    const input = new Uint8Array(arrayBuffer);
+
+                    try {
+                        const startTime = performance.now();
+                        const output = compressor.compress(input);
+                        const endTime = performance.now();
+
+                        const compressionRatio = (output.length / input.length * 100).toFixed(2);
+                        const timeTaken = (endTime - startTime).toFixed(2);
+
+                        let statusHtml = `
+                            <strong>Compression complete!</strong><br>
+                            Original size: ${input.length} bytes<br>
+                            Compressed size: ${output.length} bytes<br>
+                            Compression ratio: ${compressionRatio}%<br>
+                            Time taken: ${timeTaken} ms
+                        `;
+
+                        if (output.length >= input.length) {
+                            statusHtml += `
+                                <div class="warning">
+                                    <strong>Note:</strong> The compressed file is larger than or equal to the original.
+                                    This can happen with already optimized PDFs or those containing mostly images.
+                                    I recommend keeping the original file in this case.
+                                </div>
+                            `;
+                        }
+
+                        document.getElementById('status').innerHTML = statusHtml;
+
+                        if (output.length < input.length) {
+                            const blob = new Blob([output], { type: 'application/pdf' });
+                            const url = URL.createObjectURL(blob);
+
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = 'compressed.pdf';
+                            link.textContent = 'Download Compressed PDF';
+                            link.className = 'button';
+                            
+                            document.getElementById('output').appendChild(link);
+                        } else {
+                            document.getElementById('output').innerHTML = '<button disabled>Download Disabled</button>';
+                        }
+                    } catch (error) {
+                        console.error('Compression error:', error);
+                        document.getElementById('status').textContent = `Error: ${error}`;
+                    }
+                });
+            } catch (error) {
+                document.getElementById('status').textContent = `Failed to load WASM module: ${error}`;
+            }
+        }
+
+        run();
+    </script>
+</body>
+</html>
