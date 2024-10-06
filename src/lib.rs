@@ -161,7 +161,6 @@ impl PdfCompressor {
 mod tests {
     use super::*;
     use std::fs;
-    use lopdf::Document;
 
     #[test]
     fn test_compression() {

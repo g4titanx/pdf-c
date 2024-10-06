@@ -1,0 +1,15 @@
+{
+  "name": "pdf-c",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "pdf_c_bg.wasm",
+    "pdf_c.js",
+    "pdf_c.d.ts"
+  ],
+  "main": "pdf_c.js",
+  "types": "pdf_c.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
