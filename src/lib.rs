@@ -1,13 +1,44 @@
 mod errors;
-mod wasm_bindings;
 
 use errors::CompressionError;
 use image::{DynamicImage, ImageOutputFormat};
 use log::{info, warn};
 use lopdf::{Dictionary, Document, Object};
 use miniz_oxide::deflate::compress_to_vec_zlib;
-use std::io::Cursor;
+use sgxkit::io::{get_input_data_string, OutputWriter};
+use std::io::{Cursor, Write};
 
+#[no_mangle]
+pub extern "C" fn main() {
+    let input = sgxkit::io::get_input_data_string().unwrap_or_else(|e| format!("Error reading input: {:?}", e));
+    let mut writer = sgxkit::io::OutputWriter::new();
+    writer.write_all(format!("Received input: {}", input).as_bytes()).unwrap();
+    
+    match get_input_data_string() {
+        Ok(input) => {
+            match compress_pdf(input.as_bytes()) {
+                Ok(compressed) => {
+                    if let Err(e) = writer.write_all(&compressed) {
+                        let _ = writer.write_all(format!("Failed to write compressed PDF: {:?}\n", e).as_bytes());
+                    } else {
+                        let _ = writer.write_all(b"PDF compression successful\n");
+                    }
+                }
+                Err(e) => {
+                    let _ = writer.write_all(format!("Compression error: {:?}\n", e).as_bytes());
+                }
+            }
+        }
+        Err(e) => {
+            let _ = writer.write_all(format!("Failed to read input: {:?}\n", e).as_bytes());
+        }
+    }
+}
+
+fn compress_pdf(input: &[u8]) -> Result<Vec<u8>, CompressionError> {
+    let mut compressor = PdfCompressor::new();
+    compressor.compress(input)
+}
 pub struct PdfCompressor;
 
 impl PdfCompressor {
@@ -166,7 +197,7 @@ mod tests {
     fn test_compression() {
         let mut compressor = PdfCompressor::new();
         let input_path = "test_files/smp1.pdf";
-        
+
         println!("Reading input file...");
         let input = match fs::read(input_path) {
             Ok(data) => data,
@@ -182,7 +213,7 @@ mod tests {
             Ok(compressed) => {
                 println!("Compression completed.");
                 println!("Compressed PDF size: {} bytes", compressed.len());
-                
+
                 let compression_ratio = compressed.len() as f64 / input.len() as f64;
                 println!("Compression ratio: {:.2}%", compression_ratio * 100.0);
 
@@ -196,22 +227,12 @@ mod tests {
                 } else {
                     println!("Warning: Compressed file is larger than input.");
                 }
-                
+
                 assert!(compressed.len() > 0, "Compressed data is empty");
-            },
+            }
             Err(e) => {
                 panic!("Compression failed: {:?}", e);
             }
         }
     }
-}
-
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub fn init_panic_hook() {
-    use console_error_panic_hook;
-    console_error_panic_hook::set_once();
 }
