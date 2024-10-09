@@ -5,40 +5,8 @@ use image::{DynamicImage, ImageOutputFormat};
 use log::{info, warn};
 use lopdf::{Dictionary, Document, Object};
 use miniz_oxide::deflate::compress_to_vec_zlib;
-use sgxkit::io::{get_input_data_string, OutputWriter};
-use std::io::{Cursor, Write};
+use std::io::Cursor;
 
-#[no_mangle]
-pub extern "C" fn main() {
-    let input = sgxkit::io::get_input_data_string().unwrap_or_else(|e| format!("Error reading input: {:?}", e));
-    let mut writer = sgxkit::io::OutputWriter::new();
-    writer.write_all(format!("Received input: {}", input).as_bytes()).unwrap();
-    
-    match get_input_data_string() {
-        Ok(input) => {
-            match compress_pdf(input.as_bytes()) {
-                Ok(compressed) => {
-                    if let Err(e) = writer.write_all(&compressed) {
-                        let _ = writer.write_all(format!("Failed to write compressed PDF: {:?}\n", e).as_bytes());
-                    } else {
-                        let _ = writer.write_all(b"PDF compression successful\n");
-                    }
-                }
-                Err(e) => {
-                    let _ = writer.write_all(format!("Compression error: {:?}\n", e).as_bytes());
-                }
-            }
-        }
-        Err(e) => {
-            let _ = writer.write_all(format!("Failed to read input: {:?}\n", e).as_bytes());
-        }
-    }
-}
-
-fn compress_pdf(input: &[u8]) -> Result<Vec<u8>, CompressionError> {
-    let mut compressor = PdfCompressor::new();
-    compressor.compress(input)
-}
 pub struct PdfCompressor;
 
 impl PdfCompressor {

@@ -4,7 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
+name = "pdf_c"
+path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "pdf-c"
+path = "src/main.rs"
 
 [dependencies]
 miniz_oxide = "0.7.1"
