@@ -17,6 +17,7 @@ miniz_oxide = "0.7.1"
 image = "0.24.6"
 log = "0.4.22"
 lopdf = "0.34.0"
+base64 = "0.21"
 sgxkit = { git = "https://github.com/fleek-network/lightning", rev = "21542ac506c6cb8c281d6428f25055d5a8ce8b7e" }
 
 [profile.release]
