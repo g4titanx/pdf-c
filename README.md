@@ -16,12 +16,6 @@ Follow these steps to compress a PDF using the Fleek function and extract the re
 
    The response contains metadata followed by the compressed PDF.
 
-   Remove the first line (containing JSON metadata) from the response:
-
    ```bash
-   sed '1d' response.bin > response_content.bin
-   ```
-
-   ```bash
-    cat response_content.bin | sed '1d' > compressed.pdf
+   cat response.bin | sed '1d' > compressed.pdf
    ```
